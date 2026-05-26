@@ -1,7 +1,7 @@
 {
-  "name": "Douban Book+",
+  "name": "DoubanBook+Citation（本地版）",
   "description": "Only 1-click from Douban to your favorite ebook platforms",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "manifest_version": 3,
   "icons": {
     "16": "logo/icon16.png",

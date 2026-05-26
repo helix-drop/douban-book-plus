@@ -60,18 +60,41 @@ chrome.runtime.onMessage.addListener(
       });
     }
 
-    // 2. weread: 调用微信读书搜索接口
+    // 2. weread: 抓取搜索页 HTML，提取直链 reader URL
     let keyword = message.title;
-    let wereadUrl = `https://weread.qq.com/web/search/books?keyword=${encodeURIComponent(keyword)}`;
-    fetch(wereadUrl)
-      .then(resp => resp.json())
-      .then(data => {
-        if (data.books && data.books.length > 0) {
-          let book = findBestMatch(data.books, message);
-          if (book) {
-            result.weread = `https://weread.qq.com/web/reader/${book.bookInfo.bookId}`;
+    let wereadSearchUrl = `https://weread.qq.com/web/search/books?keyword=${encodeURIComponent(keyword)}`;
+    fetch(wereadSearchUrl)
+      .then(resp => resp.text())
+      .then(html => {
+        // 提取去重后的 reader URL（按页面顺序）
+        let readerUrls = [];
+        let seenUrls = {};
+        let urlRegex = /\/web\/reader\/[a-f0-9]+/g;
+        let urlMatch;
+        while ((urlMatch = urlRegex.exec(html)) !== null) {
+          if (!seenUrls[urlMatch[0]]) {
+            seenUrls[urlMatch[0]] = true;
+            readerUrls.push(urlMatch[0]);
           }
         }
+        if (readerUrls.length === 0) return;
+
+        // 解析 __INITIAL_STATE__ 获取书籍信息，精确匹配标题
+        try {
+          let stateMatch = html.match(/__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});/);
+          if (stateMatch) {
+            let state = JSON.parse(stateMatch[1]);
+            let bookInfos = (state.searchBooksStoreModule || {}).bookInfos || [];
+            let bestIdx = findBestMatchIdx(bookInfos, message);
+            if (bestIdx >= 0 && bestIdx < readerUrls.length) {
+              result.weread = `https://weread.qq.com${readerUrls[bestIdx]}`;
+              return;
+            }
+          }
+        } catch (e) {}
+
+        // 兜底：使用第一个 reader URL（搜索结果按相关度排序）
+        result.weread = `https://weread.qq.com${readerUrls[0]}`;
       })
       .catch(() => {})
       .finally(() => {
@@ -185,22 +208,17 @@ function buildZlibSearchUrl(domain, message) {
 
 // === 微信读书匹配 ===
 
-function findBestMatch(books, message) {
-  for (let item of books) {
-    let info = item.bookInfo;
+function findBestMatchIdx(bookInfos, message) {
+  // 优先按标题精确匹配
+  for (let i = 0; i < bookInfos.length; i++) {
+    let info = (bookInfos[i] || {}).bookInfo;
     if (!info) continue;
-    if (message.isbn && info.isbn === message.isbn) {
-      return item;
-    }
-  }
-  for (let item of books) {
-    let info = item.bookInfo;
-    if (!info) continue;
-    let titleClean = info.title.replace(/\s/g, "");
-    let msgTitleClean = message.title.replace(/\s/g, "");
+    let titleClean = (info.title || "").replace(/\s/g, "");
+    let msgTitleClean = (message.title || "").replace(/\s/g, "");
     if (titleClean === msgTitleClean) {
-      return item;
+      return i;
     }
   }
-  return books[0];
+  // 无精确匹配，返回第一个结果
+  return bookInfos.length > 0 ? 0 : -1;
 }

@@ -1,4 +1,4 @@
-# Douban Book+ (本地版)
+# DoubanBook+Citation（本地版）
 
 在豆瓣读书页面自动显示多个电子书平台的链接，一键跳转阅读。同时支持一键导出引用，粘贴到 Word 可保留斜体格式。
 
@@ -10,7 +10,7 @@
 
 | 平台 | 逻辑 |
 |------|------|
-| 微信读书 | 调用 weread.qq.com 搜索接口，按 ISBN → 标题匹配 |
+| 微信读书 | 抓取 weread.qq.com 搜索页，解析 SSR 数据精确匹配标题，提取直链 |
 | 豆瓣阅读 | 直接从豆瓣页面提取已有链接 |
 | Z-Library | 自动探活可用域名 + 三层降级搜索 |
 | Anna's Archive | 按 ISBN 构造搜索链接 |
@@ -95,10 +95,10 @@ const ANNA_DOMAINS = ["annas-archive.gl", "annas-archive.pk", "annas-archive.gd"
 ```js
 // background.js 中 weread 部分
 
-let wereadUrl = `https://weread.qq.com/web/search/books?keyword=${encodeURIComponent(keyword)}`;
+let wereadSearchUrl = `https://weread.qq.com/web/search/books?keyword=${encodeURIComponent(keyword)}`;
 ```
 
-搜索接口为微信读书官方 Web API，一般不需要修改。
+插件直接抓取微信读书搜索结果页 HTML，从中解析 `__INITIAL_STATE__` SSR 数据进行标题匹配，并提取 `/web/reader/{hash}` 格式的直链。一般不需要修改。
 
 ### 引用格式配置
 
@@ -116,7 +116,7 @@ let wereadUrl = `https://weread.qq.com/web/search/books?keyword=${encodeURICompo
 
 修改文件后：
 1. 打开 `chrome://extensions/`
-2. 找到 Douban Book+ 插件，点击刷新按钮（圆形箭头）
+2. 找到 DoubanBook+Citation 插件，点击刷新按钮（圆形箭头）
 3. 重新打开豆瓣读书页面即可
 
 如果修改了网址，需要确保 `manifest.json` 的 `host_permissions` 中包含了新域名，格式为：
