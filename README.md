@@ -1,10 +1,12 @@
 # Douban Book+ (本地版)
 
-在豆瓣读书页面自动显示多个电子书平台的链接，一键跳转阅读。
+在豆瓣读书页面自动显示多个电子书平台的链接，一键跳转阅读。同时支持一键导出引用，粘贴到 Word 可保留斜体格式。
 
 基于 [OldPanda/Douban Book+](https://github.com/OldPanda/douban-book-plus-homepage) 二次开发，移除了对外部 API 的依赖，所有搜索逻辑在插件本地完成。
 
-## 支持的平台
+## 功能
+
+### 在线阅读
 
 | 平台 | 逻辑 |
 |------|------|
@@ -13,6 +15,26 @@
 | Z-Library | 自动探活可用域名 + 三层降级搜索 |
 | Anna's Archive | 按 ISBN 构造搜索链接 |
 
+### 引用导出
+
+点击「在线阅读」旁边的「引用」按钮，弹出 Google Scholar 风格的引用弹窗。根据书籍语言自动选择格式：
+
+**中文书籍：**
+- GB/T 7714-2015
+- 《社会》杂志格式
+- 《社会学评论》杂志格式
+- BibTeX
+
+**外文书籍（英语、法语等）：**
+- APA (7th)
+- MLA (9th)
+- Chicago (17th)
+- BibTeX
+
+点击「复制」按钮，剪贴板同时写入富文本和纯文本：
+- 粘贴到 **Word** → 书名自动带斜体
+- 粘贴到**记事本/代码编辑器** → 纯文本
+
 ## 安装方式
 
 1. 下载 [最新 Release](https://github.com/helix-drop/douban-book-plus/releases) 并解压
@@ -20,13 +42,15 @@
 3. 右上角开启「开发者模式」
 4. 点击「加载已解压的扩展程序」
 5. 选择解压后的文件夹
-6. 访问任意豆瓣读书页面（如 https://book.douban.com/subject/25985021/ ），侧栏会出现「在线阅读」区域
+6. 访问任意豆瓣读书页面（如 https://book.douban.com/subject/25985021/ ），侧栏会出现「在线阅读」区域和「引用」按钮
 
-## 自定义网址配置
+## 自定义配置
+
+### 网址配置
 
 所有平台网址定义在 `background.js` 中，你可以根据需要修改：
 
-### Z-Library
+#### Z-Library
 
 ```js
 // background.js 顶部
@@ -51,7 +75,7 @@ const ZLIB_STATIC_DOMAINS = [
 2. 书名+作者 → `域名/s/红楼梦 曹雪芹`
 3. 仅书名 → `域名/s/红楼梦`
 
-### Anna's Archive
+#### Anna's Archive
 
 ```js
 // background.js 顶部
@@ -66,7 +90,7 @@ const ANNA_DOMAINS = ["annas-archive.gl", "annas-archive.pk", "annas-archive.gd"
 - `annas-archive.pk`
 - `annas-archive.gd`
 
-### 微信读书
+#### 微信读书
 
 ```js
 // background.js 中 weread 部分
@@ -76,14 +100,26 @@ let wereadUrl = `https://weread.qq.com/web/search/books?keyword=${encodeURICompo
 
 搜索接口为微信读书官方 Web API，一般不需要修改。
 
+### 引用格式配置
+
+引用格式定义在 `citation.js` 中。如需新增或修改格式，编辑对应的格式函数：
+
+- `formatGBT7714()` — GB/T 7714-2015
+- `formatSociety()` — 《社会》
+- `formatSociologicalReview()` — 《社会学评论》
+- `formatAPA()` / `formatMLA()` / `formatChicago()` — 英文格式
+- `formatBibTeX()` — BibTeX
+
+每个函数返回 `{ text, html }`，其中 `html` 用于富文本复制（支持斜体），`text` 用于纯文本复制。
+
 ### 修改后生效
 
-修改 `background.js` 后：
+修改文件后：
 1. 打开 `chrome://extensions/`
 2. 找到 Douban Book+ 插件，点击刷新按钮（圆形箭头）
 3. 重新打开豆瓣读书页面即可
 
-同时需要确保 `manifest.json` 的 `host_permissions` 中包含了你新增的域名，格式为：
+如果修改了网址，需要确保 `manifest.json` 的 `host_permissions` 中包含了新域名，格式为：
 ```json
 "https://*.你的域名/*"
 ```
