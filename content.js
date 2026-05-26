@@ -96,8 +96,8 @@ chrome.runtime.onMessage.addListener(
     const platforms = [
       { key: "weread",   img: "img/weread-logo.png",   label: "微信读书" },
       { key: "douban",   img: "img/douban-logo.svg",    label: "豆瓣阅读" },
-      { key: "zlibrary", img: "img/zlibrary-logo.png",  label: "Z-Library" },
-      { key: "anna",     img: "img/anna-logo.svg",      label: "Anna's Archive" },
+      { key: "zlibrary", img: "img/zlibrary-logo.png",  label: "Z-Library",       hint: "此站点在部分地区/网络下无法访问" },
+      { key: "anna",     img: "img/anna-logo.svg",      label: "Anna's Archive",  hint: "此站点在部分地区/网络下无法访问" },
     ];
 
     for (let p of platforms) {
@@ -105,7 +105,7 @@ chrome.runtime.onMessage.addListener(
         showLink(p.key, message[p.key], p.img);
         found = true;
       } else if (errors[p.key]) {
-        showError(p.key, p.img, p.label);
+        showError(p.key, p.img, p.label, p.hint);
         hasError = true;
       }
     }
@@ -185,7 +185,7 @@ function showLink(name, url, imgUrl) {
   }
 }
 
-function showError(name, imgUrl, label) {
+function showError(name, imgUrl, label, hint) {
   let ul = initDivElement();
   let li = document.createElement("li");
   li.style.borderBottom = "1px solid rgba(0,0,0,0.08)";
@@ -200,13 +200,24 @@ function showError(name, imgUrl, label) {
   img.style.filter = "grayscale(1)";
   img.style.opacity = "0.35";
 
-  let span = document.createElement("span");
-  span.textContent = "无法连接";
-  span.style.color = "#999";
-  span.style.fontSize = "12px";
-  span.title = label + " 域名不可达或网络故障";
+  let textWrap = document.createElement("span");
+  let statusSpan = document.createElement("span");
+  statusSpan.textContent = "无法连接";
+  statusSpan.style.color = "#999";
+  statusSpan.style.fontSize = "12px";
+  textWrap.append(statusSpan);
+
+  if (hint) {
+    let hintSpan = document.createElement("span");
+    hintSpan.textContent = hint;
+    hintSpan.style.color = "#bbb";
+    hintSpan.style.fontSize = "11px";
+    hintSpan.style.display = "block";
+    hintSpan.style.marginTop = "2px";
+    textWrap.append(hintSpan);
+  }
 
   li.append(img);
-  li.append(span);
+  li.append(textWrap);
   ul.append(li);
 }
