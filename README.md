@@ -13,7 +13,13 @@
 | 微信读书 | 抓取 weread.qq.com 搜索页，解析 SSR 数据精确匹配标题，提取直链 |
 | 豆瓣阅读 | 直接从豆瓣页面提取已有链接 |
 | Z-Library | 自动探活可用域名 + 三层降级搜索 |
-| Anna's Archive | 按 ISBN 构造搜索链接 |
+| Anna's Archive | 探活可用镜像域名 + 按 ISBN 构造搜索链接 |
+
+### 连接状态提示
+
+插件会对每个平台进行域名探活。如果平台正常响应但未收录该书，则不显示该平台；如果域名不可达（网络故障或地区限制），则显示灰色 Logo 和「无法连接」提示。
+
+> **注意：** Z-Library 和 Anna's Archive 在部分地区/网络环境下无法直接访问，这不是插件的问题。如果你始终看到「无法连接」，说明你的网络无法到达这些站点。
 
 ### 引用导出
 
@@ -83,12 +89,14 @@ const ZLIB_STATIC_DOMAINS = [
 const ANNA_DOMAINS = ["annas-archive.gl", "annas-archive.pk", "annas-archive.gd"];
 ```
 
-默认使用第一个域名。搜索链接格式为 `https://annas-archive.gl/search?q=ISBN`。如果域名失效，替换为当前可用的镜像即可。
+插件启动时会依次探活列表中的域名（HEAD 请求，8 秒超时），使用第一个可达的域名构造搜索链接 `https://域名/search?q=ISBN`。所有域名均不可达时显示「无法连接」。
 
-当前已知合法镜像：
+当前已知镜像：
 - `annas-archive.gl`
 - `annas-archive.pk`
 - `annas-archive.gd`
+
+如果你的网络环境下这些域名均无法访问，可以替换为你能访问的镜像地址。
 
 #### 微信读书
 
