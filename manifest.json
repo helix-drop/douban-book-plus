@@ -1,7 +1,7 @@
 {
   "name": "Douban Book+",
   "description": "Only 1-click from Douban to your favorite ebook platforms",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "manifest_version": 3,
   "icons": {
     "16": "logo/icon16.png",
@@ -38,7 +38,8 @@
         "*://book.douban.com/subject/*"
       ],
       "js": [
-        "content.js"
+        "content.js",
+        "citation.js"
       ]
     }
   ],

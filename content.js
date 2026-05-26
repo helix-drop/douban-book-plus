@@ -1,4 +1,5 @@
 const nonAsciiChecker = str => [...str].some(char => char.charCodeAt(0) > 127);
+const isCJK = str => /[一-鿿㐀-䶿豈-﫿]/.test(str);
 
 const imgSizes = {
   "weread": [117, 32],
@@ -37,7 +38,7 @@ if (window.location.href.indexOf("book.douban.com/subject/") != -1 && window.loc
   let title = document
     .querySelectorAll("[property='v:itemreviewed']")[0]
     .textContent.trim();
-  if (nonAsciiChecker(title)) {
+  if (isCJK(title)) {
     title = title.replaceAll(" ", "").trim();
   }
   let bookInfo = document.getElementById("info").innerText.split("\n");
