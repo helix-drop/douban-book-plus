@@ -1,0 +1,59 @@
+{
+  "name": "Douban Book+",
+  "description": "Only 1-click from Douban to your favorite ebook platforms",
+  "version": "2.0.0",
+  "manifest_version": 3,
+  "icons": {
+    "16": "logo/icon16.png",
+    "32": "logo/icon32.png",
+    "128": "logo/icon128.png"
+  },
+  "action": {
+    "default_icon": "logo/icon128.png",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://weread.qq.com/*",
+    "https://*.z-lib.sk/*",
+    "https://*.z-library.ec/*",
+    "https://*.z-library.sk/*",
+    "https://*.articles.sk/*",
+    "https://*.z-lib.gd/*",
+    "https://*.z-lib.gl/*",
+    "https://*.z-library.hn/*",
+    "https://*.z-library.la/*",
+    "https://*.fudanedu.online/*",
+    "https://*.zz101.online/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://book.douban.com/subject/*"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "img/weread-logo.png",
+        "img/douban-logo.svg",
+        "img/zlibrary-logo.png",
+        "img/anna-logo.svg",
+        "img/no-book.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

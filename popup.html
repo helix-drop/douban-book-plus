@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" type="text/css" href="third-party/Semantic-UI-CSS-master/semantic.min.css">
+</head>
+
+<body>
+  <h3 class="ui header" style="padding-top: 20px; padding-left: 5px;">
+    <img src="logo/icon128.png" class="ui small image">
+    Douban Book+
+  </h3>
+  <div class="ui divider"></div>
+  <div class="ui container" id="vendor-list">
+    <div class="ui relaxed divided list">
+      <div class="item">
+        <!-- Weread -->
+        <div class="ui right aligned grid">
+          <div class="left floated right aligned six wide column">
+            <img class="ui middle aligned medium image" src="/img/weread-logo.png">
+          </div>
+          <div class="right floated left aligned six wide column">
+            <div class="ui right floated middle aligned toggle checkbox" id="weread"></div>
+          </div>
+        </div>
+        <!-- Douban -->
+        <div class="ui grid">
+          <div class="left floated right aligned six wide column">
+            <img class="ui middle aligned medium image" src="/img/douban-logo.svg">
+          </div>
+          <div class="right floated left aligned six wide column">
+            <div class="ui right floated middle aligned toggle checkbox" id="douban"></div>
+          </div>
+        </div>
+        <!-- Zlibrary -->
+        <div class="ui grid">
+          <div class="left floated right aligned six wide column">
+            <img class="ui middle aligned medium image" src="/img/zlibrary-logo.png">
+          </div>
+          <div class="right floated left aligned six wide column">
+            <div class="ui right floated middle aligned toggle checkbox" id="zlibrary"></div>
+          </div>
+        </div>
+        <!-- Anna -->
+        <div class="ui grid">
+          <div class="left floated right aligned six wide column">
+            <img class="ui middle aligned medium image" src="/img/anna-logo.svg">
+          </div>
+          <div class="right floated left aligned six wide column">
+            <div class="ui right floated middle aligned toggle checkbox" id="anna"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js" type="module"></script>
+</body>
+
+</html>
