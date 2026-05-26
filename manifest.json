@@ -1,7 +1,7 @@
 {
   "name": "DoubanBook+Citation（本地版）",
   "description": "Only 1-click from Douban to your favorite ebook platforms",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "manifest_version": 3,
   "icons": {
     "16": "logo/icon16.png",
@@ -26,7 +26,10 @@
     "https://*.z-library.hn/*",
     "https://*.z-library.la/*",
     "https://*.fudanedu.online/*",
-    "https://*.zz101.online/*"
+    "https://*.zz101.online/*",
+    "https://*.annas-archive.gl/*",
+    "https://*.annas-archive.pk/*",
+    "https://*.annas-archive.gd/*"
   ],
   "background": {
     "service_worker": "background.js",

@@ -90,23 +90,27 @@ if (window.location.href.indexOf("book.douban.com/subject/") != -1 && window.loc
 chrome.runtime.onMessage.addListener(
   (message, sender) => {
     let found = false;
-    if (message.hasOwnProperty("weread")) {
-      showLink("weread", message.weread, "img/weread-logo.png");
-      found = true;
+    let hasError = false;
+    let errors = message.errors || {};
+
+    const platforms = [
+      { key: "weread",   img: "img/weread-logo.png",   label: "微信读书" },
+      { key: "douban",   img: "img/douban-logo.svg",    label: "豆瓣阅读" },
+      { key: "zlibrary", img: "img/zlibrary-logo.png",  label: "Z-Library" },
+      { key: "anna",     img: "img/anna-logo.svg",      label: "Anna's Archive" },
+    ];
+
+    for (let p of platforms) {
+      if (message.hasOwnProperty(p.key)) {
+        showLink(p.key, message[p.key], p.img);
+        found = true;
+      } else if (errors[p.key]) {
+        showError(p.key, p.img, p.label);
+        hasError = true;
+      }
     }
-    if (message.hasOwnProperty("douban")) {
-      showLink("douban", message.douban, "img/douban-logo.svg");
-      found = true;
-    }
-    if (message.hasOwnProperty("zlibrary")) {
-      showLink("zlibrary", message.zlibrary, "img/zlibrary-logo.png");
-      found = true;
-    }
-    if (message.hasOwnProperty("anna")) {
-      showLink("anna", message.anna, "img/anna-logo.svg");
-      found = true;
-    }
-    if (!found) {
+
+    if (!found && !hasError) {
       showLink("nobook", "", "img/no-book.png");
     }
   }
@@ -179,4 +183,30 @@ function showLink(name, url, imgUrl) {
     li.append(img);
     ul.append(li);
   }
+}
+
+function showError(name, imgUrl, label) {
+  let ul = initDivElement();
+  let li = document.createElement("li");
+  li.style.borderBottom = "1px solid rgba(0,0,0,0.08)";
+  li.style.margin = "10px auto";
+  li.style.display = "flex";
+  li.style.alignItems = "center";
+  li.style.gap = "8px";
+
+  let img = new Image();
+  img.src = chrome.runtime.getURL(imgUrl);
+  [img.width, img.height] = imgSizes[name];
+  img.style.filter = "grayscale(1)";
+  img.style.opacity = "0.35";
+
+  let span = document.createElement("span");
+  span.textContent = "无法连接";
+  span.style.color = "#999";
+  span.style.fontSize = "12px";
+  span.title = label + " 域名不可达或网络故障";
+
+  li.append(img);
+  li.append(span);
+  ul.append(li);
 }

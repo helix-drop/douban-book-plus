@@ -24,6 +24,7 @@ chrome.runtime.onMessage.addListener(
     const tabId = sender.tab.id;
 
     let result = {};
+    let errors = {};  // 记录各平台连接错误
 
     // 1. douban: 从页面已有链接中提取
     for (let link of message.ebooks) {
@@ -33,19 +34,17 @@ chrome.runtime.onMessage.addListener(
       }
     }
 
-    // 并行处理 weread 和 zlibrary 探活
+    // 并行处理 weread、zlibrary、anna
     let wereadDone = false;
     let zlibDone = false;
+    let annaDone = false;
 
     function tryFinish() {
-      if (!wereadDone || !zlibDone) return;
+      if (!wereadDone || !zlibDone || !annaDone) return;
 
-      // anna: 按 ISBN 构造搜索链接
-      let annaDomain = ANNA_DOMAINS[0];
-      if (message.isbn) {
-        result.anna = `https://${annaDomain}/search?q=${encodeURIComponent(message.isbn)}`;
-      } else {
-        result.anna = `https://${annaDomain}/search?q=${encodeURIComponent(message.title)}`;
+      // 附带错误信息
+      if (Object.keys(errors).length > 0) {
+        result.errors = errors;
       }
 
       // 过滤用户关闭的平台
@@ -54,6 +53,7 @@ chrome.runtime.onMessage.addListener(
         for (let [vendor, checked] of Object.entries(settings)) {
           if (!checked) {
             delete result[vendor];
+            if (result.errors) delete result.errors[vendor];
           }
         }
         chrome.tabs.sendMessage(tabId, result);
@@ -96,7 +96,9 @@ chrome.runtime.onMessage.addListener(
         // 兜底：使用第一个 reader URL（搜索结果按相关度排序）
         result.weread = `https://weread.qq.com${readerUrls[0]}`;
       })
-      .catch(() => {})
+      .catch(() => {
+        errors.weread = true;  // 网络错误 → 连接失败
+      })
       .finally(() => {
         wereadDone = true;
         tryFinish();
@@ -106,9 +108,28 @@ chrome.runtime.onMessage.addListener(
     getZlibDomain().then(domain => {
       if (domain) {
         result.zlibrary = buildZlibSearchUrl(domain, message);
+      } else {
+        errors.zlibrary = true;  // 所有域名均不可达
       }
-    }).catch(() => {}).finally(() => {
+    }).catch(() => {
+      errors.zlibrary = true;
+    }).finally(() => {
       zlibDone = true;
+      tryFinish();
+    });
+
+    // 4. anna: 探活可用域名，构造搜索链接
+    getAnnaDomain().then(domain => {
+      if (domain) {
+        let q = message.isbn || message.title;
+        result.anna = `https://${domain}/search?q=${encodeURIComponent(q)}`;
+      } else {
+        errors.anna = true;  // 所有域名均不可达
+      }
+    }).catch(() => {
+      errors.anna = true;
+    }).finally(() => {
+      annaDone = true;
       tryFinish();
     });
   }
@@ -189,6 +210,22 @@ async function updateZlibDomainList(availableDomain) {
       });
     }
   } catch {}
+}
+
+// === Anna's Archive 域名探活 ===
+
+async function getAnnaDomain() {
+  for (let domain of ANNA_DOMAINS) {
+    try {
+      let resp = await fetch(`https://${domain}/`, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(8000)
+      });
+      // 任何响应（包括重定向、403）都说明域名可达
+      return domain;
+    } catch {}
+  }
+  return null;
 }
 
 // === Z-Library 三层降级搜索 URL ===
