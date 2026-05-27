@@ -73,40 +73,81 @@
       .filter((n) => n.length > 0);
   }
 
+  // === 外国人名处理 ===
+
+  // GB/T 7714-2015：欧美著者中译名只著录其姓
+  // 米歇尔·福柯 → 福柯
+  function foreignSurnameOnly(name) {
+    if (name.includes("·") || name.includes("・")) {
+      let parts = name.split(/[·・]/);
+      return parts.pop().trim();
+    }
+    return name;
+  }
+
+  // 期刊格式：姓在前名在后，逗号分隔
+  // 米歇尔·福柯 → 福柯,米歇尔
+  function reverseForeignName(name) {
+    if (name.includes("·") || name.includes("・")) {
+      let parts = name.split(/[·・]/);
+      let surname = parts.pop().trim();
+      let given = parts.map((p) => p.trim()).join("·");
+      return `${surname},${given}`;
+    }
+    return name;
+  }
+
   // === 引用格式生成器 ===
   // 每个返回 { text, html }
   // text = 纯文本（给纯文本编辑器）
   // html = 带 <i> 标签（给 Word）
 
+  // 期刊格式：只颠倒第一作者的外国人名，后续作者保持原序
+  // 例：拉图尔,布鲁诺,史蒂夫·伍尔加
+  function reverseFirstAuthor(authors) {
+    return authors.map((a, i) => (i === 0 ? reverseForeignName(a) : a));
+  }
+
   // --- 中文格式（不需要斜体）---
 
   function formatGBT7714(info) {
-    let authors = info.authors.join(", ");
+    // GB/T 7714-2015：主要责任者. 题名[M]. 其他责任者. 出版地：出版者，出版年.
+    // 外国人中译名只著录其姓（霍金、福柯）
+    // 多个著者用，分隔；出版者与出版年用，分隔
+    // 示例：哈里森，沃尔德伦. 经济数学与金融数学[M]. 谢远涛，译. 北京：中国人民大学出版社，2012.
+    let mapped = info.authors.map(foreignSurnameOnly);
+    // 8.1.2：超过3个责任者时，著录前3个，其后加"，等"
+    let authors =
+      mapped.length > 3
+        ? mapped.slice(0, 3).join("，") + "，等"
+        : mapped.join("，");
     let s = `${authors}. ${info.fullTitle}[M]. `;
     if (info.translators.length > 0) {
-      s += `${info.translators.join(", ")}, 译. `;
+      s += `${info.translators.join("，")}，译. `;
     }
-    s += `${info.publisher || ""}, ${info.year}.`;
+    s += `${info.publisher || ""}，${info.year}.`;
     return { text: s, html: esc(s) };
   }
 
   function formatSociety(info) {
-    let authors = info.authors.join("、");
-    let s = `${authors}．${info.year}．${info.fullTitle}［M］．`;
+    // 《社会》格式：作者.年份.书名[M].译者,译.出版社.
+    let authors = reverseFirstAuthor(info.authors).join(",");
+    let s = `${authors}.${info.year}.${info.fullTitle}[M].`;
     if (info.translators.length > 0) {
-      s += `${info.translators.join("、")}，译．`;
+      s += `${info.translators.join(",")},译.`;
     }
-    s += `${info.publisher || ""}．`;
+    s += `${info.publisher || ""}.`;
     return { text: s, html: esc(s) };
   }
 
   function formatSociologicalReview(info) {
-    let authors = info.authors.join("、");
-    let s = `${authors}，${info.year}，《${info.fullTitle}》`;
+    // 《社会学评论》格式：作者.年份.《书名》.译者译.出版社.
+    let authors = reverseFirstAuthor(info.authors).join(",");
+    let s = `${authors}.${info.year}.《${info.fullTitle}》.`;
     if (info.translators.length > 0) {
-      s += `，${info.translators.join("、")}译`;
+      s += `${info.translators.join(",")}译.`;
     }
-    s += `，${info.publisher || ""}。`;
+    s += `${info.publisher || ""}.`;
     return { text: s, html: esc(s) };
   }
 
@@ -137,11 +178,13 @@
   }
 
   function formatBibTeX(info) {
-    let key =
-      (info.authors[0] || "unknown").replace(/[^a-zA-Z一-鿿]/g, "") +
-      info.year;
+    // BibTeX 要求所有作者 Surname, Given 格式
+    let reversedAuthors = info.authors.map(reverseForeignName);
+    // key 只取第一作者的姓
+    let keyName = reversedAuthors[0] || "unknown";
+    let key = keyName.split(",")[0].replace(/[^a-zA-Z一-鿿]/g, "") + info.year;
     let title = info.originalTitle || info.fullTitle;
-    let authors = info.authors.join(" and ");
+    let authors = reversedAuthors.join(" and ");
     let s = `@book{${key},\n`;
     s += `  title     = {${title}},\n`;
     s += `  author    = {${authors}},\n`;

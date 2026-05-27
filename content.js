@@ -138,7 +138,7 @@ function initDivElement() {
 
     let footer = document.createElement("p");
     footer.style = "text-align: center; color: grey;";
-    footer.innerHTML = `Powered by <a href="https://doubanbook.plus/" target="_blank">Douban Book+</a>`;
+    footer.innerHTML = `Powered by <a href="https://github.com/helix-drop/douban-book-plus" target="_blank">DoubanBook+Citation</a>`;
     div.append(footer);
 
     let element = document.getElementsByClassName("aside");
@@ -190,34 +190,31 @@ function showError(name, imgUrl, label, hint) {
   let li = document.createElement("li");
   li.style.borderBottom = "1px solid rgba(0,0,0,0.08)";
   li.style.margin = "10px auto";
-  li.style.display = "flex";
-  li.style.alignItems = "center";
-  li.style.gap = "8px";
 
   let img = new Image();
   img.src = chrome.runtime.getURL(imgUrl);
   [img.width, img.height] = imgSizes[name];
   img.style.filter = "grayscale(1)";
   img.style.opacity = "0.35";
+  li.append(img);
 
-  let textWrap = document.createElement("span");
+  let textDiv = document.createElement("div");
+  textDiv.style.marginTop = "4px";
+
   let statusSpan = document.createElement("span");
   statusSpan.textContent = "无法连接";
   statusSpan.style.color = "#999";
   statusSpan.style.fontSize = "12px";
-  textWrap.append(statusSpan);
+  textDiv.append(statusSpan);
 
   if (hint) {
     let hintSpan = document.createElement("span");
-    hintSpan.textContent = hint;
+    hintSpan.textContent = " · " + hint;
     hintSpan.style.color = "#bbb";
     hintSpan.style.fontSize = "11px";
-    hintSpan.style.display = "block";
-    hintSpan.style.marginTop = "2px";
-    textWrap.append(hintSpan);
+    textDiv.append(hintSpan);
   }
 
-  li.append(img);
-  li.append(textWrap);
+  li.append(textDiv);
   ul.append(li);
 }
