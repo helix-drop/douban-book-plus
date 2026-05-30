@@ -60,41 +60,25 @@ chrome.runtime.onMessage.addListener(
       });
     }
 
-    // 2. weread: 抓取搜索页 HTML，提取直链 reader URL
+    // 2. weread: 抓取搜索页，解析书目，按标题匹配后由 bookId 推导 reader 直链
     let keyword = message.title;
     let wereadSearchUrl = `https://weread.qq.com/web/search/books?keyword=${encodeURIComponent(keyword)}`;
     fetch(wereadSearchUrl)
       .then(resp => resp.text())
       .then(html => {
-        // 提取去重后的 reader URL（按页面顺序）
-        let readerUrls = [];
-        let seenUrls = {};
-        let urlRegex = /\/web\/reader\/[a-f0-9]+/g;
-        let urlMatch;
-        while ((urlMatch = urlRegex.exec(html)) !== null) {
-          if (!seenUrls[urlMatch[0]]) {
-            seenUrls[urlMatch[0]] = true;
-            readerUrls.push(urlMatch[0]);
-          }
-        }
-        if (readerUrls.length === 0) return;
-
-        // 解析 __INITIAL_STATE__ 获取书籍信息，精确匹配标题
         try {
+          // 从 __INITIAL_STATE__ 取书目，挑出确属同一本书的结果
           let stateMatch = html.match(/__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});/);
-          if (stateMatch) {
-            let state = JSON.parse(stateMatch[1]);
-            let bookInfos = (state.searchBooksStoreModule || {}).bookInfos || [];
-            let bestIdx = findBestMatchIdx(bookInfos, message);
-            if (bestIdx >= 0 && bestIdx < readerUrls.length) {
-              result.weread = `https://weread.qq.com${readerUrls[bestIdx]}`;
-              return;
-            }
-          }
-        } catch (e) {}
-
-        // 兜底：使用第一个 reader URL（搜索结果按相关度排序）
-        result.weread = `https://weread.qq.com${readerUrls[0]}`;
+          if (!stateMatch) return;
+          let state = JSON.parse(stateMatch[1]);
+          let bookInfos = (state.searchBooksStoreModule || {}).bookInfos || [];
+          let match = findWereadMatch(bookInfos, message);
+          if (!match || !match.bookId) return;  // 无可信匹配 → 不给链接，胜过给错链接
+          // reader URL 由 bookId 确定性推导：页面渲染顺序不可靠，缺链的书也能命中
+          result.weread = `https://weread.qq.com/web/reader/${transformWereadBookId(match.bookId)}`;
+        } catch (e) {
+          // 解析失败按“未找到”处理，不误报为连接失败
+        }
       })
       .catch(() => {
         errors.weread = true;  // 网络错误 → 连接失败
@@ -245,17 +229,136 @@ function buildZlibSearchUrl(domain, message) {
 
 // === 微信读书匹配 ===
 
-function findBestMatchIdx(bookInfos, message) {
-  // 优先按标题精确匹配
-  for (let i = 0; i < bookInfos.length; i++) {
-    let info = (bookInfos[i] || {}).bookInfo;
-    if (!info) continue;
-    let titleClean = (info.title || "").replace(/\s/g, "");
-    let msgTitleClean = (message.title || "").replace(/\s/g, "");
-    if (titleClean === msgTitleClean) {
-      return i;
+// 归一化：去空白、去常见标点、转小写，便于跨标点/空格比较书名
+function normalizeText(s) {
+  if (!s) return "";
+  return String(s)
+    .toLowerCase()
+    .replace(/[\s　]+/g, "")
+    .replace(/[·•・,，.。:：;；!！?？'"'""\-—–_~()（）\[\]【】《》〈〉「」、/\\|]/g, "");
+}
+
+// 豆瓣条目可能把书名拆成「标题 + 副标题」，逐一与微信读书书名比对
+function titleVariants(message) {
+  let t = normalizeText(message.title);
+  let s = normalizeText(message.subtitle);
+  let v = [];
+  if (t) v.push(t);
+  if (s) v.push(s);
+  if (t && s) v.push(t + s);
+  return v;
+}
+
+// 仅在确有把握时返回匹配的 bookInfo，否则返回 null（宁可不给链接也不给错链接）
+function findWereadMatch(bookInfos, message) {
+  let candidates = [];
+  for (let b of bookInfos) {
+    let info = (b || {}).bookInfo;
+    if (info && info.bookId) candidates.push(info);
+  }
+  if (candidates.length === 0) return null;
+
+  let variants = titleVariants(message);
+  if (variants.length === 0) return null;
+
+  // 第一档：归一化后书名与豆瓣某一标题变体完全一致
+  for (let info of candidates) {
+    let wTitle = normalizeText(info.title);
+    if (wTitle && variants.includes(wTitle)) return info;
+  }
+
+  // 第二档：一方书名包含另一方，且较短一方足够具体（≥4 字符），容纳副标题/版本差异
+  for (let info of candidates) {
+    let wTitle = normalizeText(info.title);
+    if (!wTitle) continue;
+    for (let v of variants) {
+      let longer = wTitle.length >= v.length ? wTitle : v;
+      let shorter = wTitle.length >= v.length ? v : wTitle;
+      if (shorter.length >= 4 && longer.includes(shorter)) return info;
     }
   }
-  // 无精确匹配，返回第一个结果
-  return bookInfos.length > 0 ? 0 : -1;
+
+  // 无可信匹配（如外文原版书名与中译本对不上）→ 不给链接
+  return null;
+}
+
+// 由 bookId 推导 reader 直链 hash。WeRead 的算法依赖 MD5，故内置一份实现。
+function transformWereadBookId(bookId) {
+  let idStr = String(bookId);
+  let h = md5(idStr);
+  let result = h.substring(0, 3);
+  let parts;
+  if (/^\d+$/.test(idStr)) {
+    // 纯数字 ID：每 9 位一段转十六进制
+    let chunks = [];
+    for (let i = 0; i < idStr.length; i += 9) {
+      chunks.push(parseInt(idStr.slice(i, i + 9), 10).toString(16));
+    }
+    parts = ["3", chunks];
+  } else {
+    let hex = "";
+    for (let i = 0; i < idStr.length; i++) hex += idStr.charCodeAt(i).toString(16);
+    parts = ["4", [hex]];
+  }
+  result += parts[0];
+  result += "2" + h.substring(h.length - 2);
+  for (let i = 0; i < parts[1].length; i++) {
+    let sub = parts[1][i];
+    let lenHex = sub.length.toString(16);
+    if (lenHex.length === 1) lenHex = "0" + lenHex;
+    result += lenHex + sub;
+    if (i < parts[1].length - 1) result += "g";  // 多段之间以 g 分隔（非十六进制字符）
+  }
+  if (result.length < 20) result += h.substring(0, 20 - result.length);
+  result += md5(result).substring(0, 3);
+  return result;
+}
+
+// 纯 JS MD5（WebCrypto 不提供 MD5）。返回 32 位十六进制摘要。
+function md5(str) {
+  function rl(x, c) { return (x << c) | (x >>> (32 - c)); }
+  function add(a, b) { return (a + b) & 0xffffffff; }
+
+  let bytes = new TextEncoder().encode(str);
+  let lenBits = bytes.length * 8;
+  let msg = Array.from(bytes);
+  msg.push(0x80);
+  while (msg.length % 64 !== 56) msg.push(0);
+  for (let i = 0; i < 8; i++) msg.push(i < 4 ? (lenBits >>> (8 * i)) & 0xff : 0);
+
+  let K = [];
+  for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) & 0xffffffff;
+  let S = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+           5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+           4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+           6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21];
+
+  let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+
+  for (let off = 0; off < msg.length; off += 64) {
+    let M = [];
+    for (let i = 0; i < 16; i++) {
+      M[i] = msg[off + i * 4] | (msg[off + i * 4 + 1] << 8) |
+             (msg[off + i * 4 + 2] << 16) | (msg[off + i * 4 + 3] << 24);
+    }
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F, g;
+      if (i < 16) { F = (B & C) | (~B & D); g = i; }
+      else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
+      else if (i < 48) { F = B ^ C ^ D; g = (3 * i + 5) % 16; }
+      else { F = C ^ (B | ~D); g = (7 * i) % 16; }
+      F = add(add(add(F, A), K[i]), M[g]);
+      A = D; D = C; C = B;
+      B = add(B, rl(F, S[i]));
+    }
+    a0 = add(a0, A); b0 = add(b0, B); c0 = add(c0, C); d0 = add(d0, D);
+  }
+
+  function hex(n) {
+    let s = "";
+    for (let i = 0; i < 4; i++) s += ((n >>> (8 * i)) & 0xff).toString(16).padStart(2, "0");
+    return s;
+  }
+  return hex(a0) + hex(b0) + hex(c0) + hex(d0);
 }
